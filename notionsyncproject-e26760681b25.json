@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "notionsyncproject",
+  "private_key_id": "e26760681b25ad75fbfc76ec953436bd46246263",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC01GuG94qhZdPn\nqZF+YTH9QU57NBFAPmYgtHArN4WiJ+2124LLVNNTmJxBvY+CT18LNE04gQBFCaAX\nGloSYDWDD327DhuYAmSp6A1C6jH5WOvWQx9M4yVpQOPbnzLPo6e59hYCbQ/LxY+0\nwx2xaS6D5AWGWGJD5JWD840bphVFEhHADm4H2krSiYYRmYEEsb1sLDSbSHyXrRiO\ngySS0QNlWxdQ0h1o3JDWo7qA4C1rparJ4WB2CYe/80NkCawLtKWeuGkUk0EZQtUv\nd9SCAyziKDQQkzoapr1kyiCvuJjttqZ7KBPr5nJtdRHicGyOYz5ECo/Nje5+j38B\nEOH7hWeHAgMBAAECggEAAd+diZVw+0EZ0/Gez0dkhDI0BPTCJP9AgaA89UWq/cYa\nIWM31LF5SwluvQOgxAHcgzo0fpxfi1eRMAwW2M/kXgpADDsWMBn+PwBnesUAZYv1\nTY/+eAZ2ccO5WKIqnZodd8DD85x7qGnQllfbK+ZiE/29zOmHgxqQLgDM+ndbCw8j\nZdzbMNMfr99m+i567649nkfLJeel8+Bmocua3ffZaXh9ZETm6ULeRUdZlr8EsG4f\nx3xlnQ7DYITeJMxnLlMUaZmkki/y86rnvARvxlNYMIIZLPFBL/hza2M0YDLhya8U\n1DuxAhUpO9QJuVtyadTRBBCfUYxUgHtNUJv3hcvuYQKBgQDmltl4oSSGz5JH6XNt\nJqn6eeD5NeUC0HAKBpQzHfnahKTuJKcOaUTErY+WUwLmDTy27l49Eph9HJv05XFY\nuqntGa9L5R0oOFNmWJkla8L0zD4krFDVc+QPyHqHyRl6t/Zau1XbUHFt1fXznPnb\nlD5UII5vlKeid3Z93VNNLsvt9wKBgQDIwc5jPF1ZUJlrjobtuiVvDOhKNrbaGUvy\nLhywxOBxJV39Jsd0u8/GEpmoeoxuaQl8fNADjASr5ftwjXhJPVaaGfCK9rYjlHP+\ng9wfh7DBYNVxZx0EzVp441VXhgGGzz/p+zHk/iyChayHsHlKvt1WY7csmYzsVZfC\n9sSx63gu8QKBgQC5PWXm6k0Vn5q7+manwO+8MDzy9sDKyfe3liFoDySwzu5QAVHS\n2e5MscEv2e/yL6AetM8v8MhfeaQv0EKGLS5lMsUICz6pGNam2XXuAevUDF+/xk4J\nq9gCdeM5QeweEbrumKAYVz9IJSI4Wlq+cxC/NIg4SwuAEMg3xJ0u2/EncQKBgAFH\nAmotOybTVXaSvJcMpSpUubGnMXinyozq8DHLvuXZaASxV3mNrF/FRIcG6JfXQUEy\nhhxPqsPxPa1UqRxGMKPgYGBx+2y0iBxpeGAW++/vDsye7FdYeyfjwmpBJwdVkEGL\n4KBlYaEe+p8OZ2crWbsv/T1iaLwkO0f5S/0Z03TxAoGAF88svAawpyIi7TXy6mkN\nbm8Q7edfBR2dLCuLROWnQMR6ZNItkq2vy2DsJET3qJMJC9os56QodLH8lIFyOxtL\nwWggjjIgDYpCqUjoQ3/30fDSgujf55x0IyUn9znBZu4/Cvo2mkIxDjuABmPRJh3b\n/atU4aNqh+VgESLUsY9I+y4=\n-----END PRIVATE KEY-----\n",
+  "client_email": "notion-sync@notionsyncproject.iam.gserviceaccount.com",
+  "client_id": "112638215997211442631",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/notion-sync%40notionsyncproject.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
