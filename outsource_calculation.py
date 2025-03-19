@@ -120,7 +120,8 @@ def update_notion_outsource_cost():
         creds = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_CREDENTIALS_FILE, scope)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
-        data = sheet.get_all_records()
+        data = sheet.get_all_records(expected_headers=expected_headers, head=4)
+
 
         project_costs = {}
 
