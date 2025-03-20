@@ -126,7 +126,7 @@ def update_notion_outsource_cost():
         # ✅ Google Sheets のヘッダー行を取得
         actual_headers = sheet.row_values(4)  # 4行目のヘッダーを取得
         actual_headers = [h for h in actual_headers if h]  # 空白の要素を削除
-        print("📌 実際のGoogle Sheets ヘッダー:", actual_headers)
+        print("📌 実際のGoogle Sheets ヘッダー:", repr(actual_headers))
 
         # ✅ 期待するヘッダーを明示
         expected_headers = [
@@ -137,7 +137,7 @@ def update_notion_outsource_cost():
 
         # ✅ データ取得（expected_headers を指定）
         data = sheet.get_all_records(expected_headers=expected_headers)
-        print("📊 取得データ:", data)
+        print("🔍 期待するヘッダー:", repr(expected_headers))
 
         project_costs = {}
 
