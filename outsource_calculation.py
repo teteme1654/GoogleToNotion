@@ -115,29 +115,41 @@ def update_notion_outsource_cost():
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
 
-        actual_headers = sheet.row_values(4)
-        actual_headers = [h.strip() for h in actual_headers if h.strip()]
-        actual_headers = list(dict.fromkeys(actual_headers))
-        print("📌 実際のGoogle Sheets ヘッダー:", repr(actual_headers))
+        # ✅ Google Sheets のヘッダーをセル位置で明示的に指定
+        expected_headers = {
+            "プロジェクト名": "B4", 
+            "外注スタッフ": "C4", 
+            "税": "D4", 
+            "開始日": "E4", 
+            "終了日": "F4", 
+            "日数": "G4",
+            "1日単価（標準）": "H4", 
+            "1日単価（修正）": "I4", 
+            "移動日数": "J4", 
+            "機材チェック日数": "K4", 
+            "料金": "L4"
+        }
 
-        expected_headers = [
-            "プロジェクト名", "外注スタッフ", "税", "開始日", "終了日", "日数",
-            "1日単価（標準）", "1日単価（修正）", "移動日数", "機材チェック日数", "料金"
-        ]
+        # ✅ スプレッドシートからデータ取得（5行目以降のデータ）
+        raw_data = sheet.get_values("B5:L")  # B5 から L列の最終行まで取得
 
-        actual_headers = [unicodedata.normalize("NFC", h) for h in actual_headers]
-        expected_headers = [unicodedata.normalize("NFC", h) for h in expected_headers]
+        # ✅ データの辞書化
+        data = []
+        for row in raw_data:
+            if len(row) < len(expected_headers):  # データが不足している場合、空文字で埋める
+                row.extend([""] * (len(expected_headers) - len(row)))
 
-        print("📌 Unicode 正規化後のヘッダー:", repr(actual_headers))
+            row_dict = {header: row[idx] for idx, header in enumerate(expected_headers.keys())}
+            data.append(row_dict)
 
-        data = sheet.get_all_records()
-        print("📜 取得データ:", repr(data[:3]))
+        print("📜 取得データ:", repr(data[:3]))  # 最初の3行を確認
 
         project_costs = {}
 
         for row in data:
             project_name = row.get("プロジェクト名", "").strip()
-            cost = row.get("料金", 0)
+            cost = row.get("料金", "0").strip()
+            cost = int(cost) if cost.isdigit() else 0  # 数値変換
 
             if project_name:
                 project_costs[project_name] = project_costs.get(project_name, 0) + cost
