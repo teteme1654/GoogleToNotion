@@ -1,4 +1,5 @@
 import gspread
+import unicodedata
 from oauth2client.service_account import ServiceAccountCredentials
 from notion_client import Client
 from datetime import datetime
@@ -128,6 +129,7 @@ def update_notion_outsource_cost():
         actual_headers = [h.strip() for h in actual_headers if h.strip()]  # 空白の要素を削除してトリム
         print("📌 実際のGoogle Sheets ヘッダー:", repr(actual_headers))
 
+
         # ✅ 期待するヘッダーを明示
         expected_headers = [
             "プロジェクト名", "外注スタッフ", "税", "開始日", "終了日", "日数",
@@ -146,6 +148,14 @@ def update_notion_outsource_cost():
         # ✅ Unicodeコードポイントチェック（微妙な文字違いがないか確認）
         for i, (act, exp) in enumerate(zip(actual_headers, expected_headers)):
             print(f"🔠 {i+1}列目 - 実際: {[ord(c) for c in act]}, 期待: {[ord(c) for c in exp]}")
+
+        # Google Sheets から取得したヘッダーを正規化
+        actual_headers = [unicodedata.normalize("NFC", h.strip()) for h in actual_headers]
+
+        # 期待するヘッダーも正規化
+        expected_headers = [unicodedata.normalize("NFC", h) for h in expected_headers]
+
+        print("📌 Unicode 正規化後のヘッダー:", repr(actual_headers))
 
         # ✅ データ取得（expected_headers を指定）
         data = sheet.get_all_records(expected_headers=expected_headers)
