@@ -125,7 +125,7 @@ def update_notion_outsource_cost():
 
         # ✅ Google Sheets のヘッダー行を取得
         actual_headers = sheet.row_values(4)  # 4行目のヘッダーを取得
-        actual_headers = [h for h in actual_headers if h]  # 空白の要素を削除
+        actual_headers = [h.strip() for h in actual_headers if h.strip()]  # 空白の要素を削除してトリム
         print("📌 実際のGoogle Sheets ヘッダー:", repr(actual_headers))
 
         # ✅ 期待するヘッダーを明示
@@ -133,16 +133,23 @@ def update_notion_outsource_cost():
             "プロジェクト名", "外注スタッフ", "税", "開始日", "終了日", "日数",
             "1日単価（標準）", "1日単価（修正）", "移動日数", "機材チェック日数", "料金"
         ]
-        print("🔍 期待するヘッダー:", expected_headers)
+        print("🔍 期待するヘッダー:", repr(expected_headers))
 
+        # ✅ 並び順を強制的に一致させる
         actual_headers = sorted(actual_headers, key=lambda x: expected_headers.index(x) if x in expected_headers else len(expected_headers))
-        print("🛠 並び替え後のヘッダー:", actual_headers)
+        print("🛠 並び替え後のヘッダー:", repr(actual_headers))
 
+        # ✅ データ型チェック
+        print(f"📏 ヘッダーの長さ: 実際={len(actual_headers)}, 期待={len(expected_headers)}")
+        print(f"🛠 データ型: 実際={type(actual_headers)}, 期待={type(expected_headers)}")
 
+        # ✅ Unicodeコードポイントチェック（微妙な文字違いがないか確認）
+        for i, (act, exp) in enumerate(zip(actual_headers, expected_headers)):
+            print(f"🔠 {i+1}列目 - 実際: {[ord(c) for c in act]}, 期待: {[ord(c) for c in exp]}")
 
         # ✅ データ取得（expected_headers を指定）
         data = sheet.get_all_records(expected_headers=expected_headers)
-        print("🔍 期待するヘッダー:", repr(expected_headers))
+        print("📜 取得データ:", repr(data[:3]))  # 最初の3行を確認
 
         project_costs = {}
 
@@ -170,6 +177,7 @@ def update_notion_outsource_cost():
 
     except Exception as e:
         print(f"❌ エラー: {e}")
+
 
 if __name__ == "__main__":
     write_to_google_sheets()
