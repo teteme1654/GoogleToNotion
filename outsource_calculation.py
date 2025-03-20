@@ -120,14 +120,10 @@ def update_notion_outsource_cost():
         creds = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_CREDENTIALS_FILE, scope)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
-        
-        # **🔹 期待するヘッダーを明示的に指定**
-        expected_headers = [
-            "プロジェクト名", "外注スタッフ", "税", "開始日", "終了日", "日数",
-            "1日単価（標準）", "1日単価（修正）", "移動日数", "機材チェック日数", "料金"
-        ]
-        
-        data = sheet.get_all_records(expected_headers=expected_headers)
+        data = sheet.get_all_records(expected_headers=[
+                "プロジェクト名", "外注スタッフ", "税", "開始日", "終了日", "日数", 
+                "1日単価（標準）", "1日単価（修正）", "移動日数", "機材チェック日数", "料金"
+                ])
 
 
         project_costs = {}
