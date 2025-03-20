@@ -152,13 +152,11 @@ def update_notion_outsource_cost():
         project_costs = {}
 
         for row in data:
-            project_name = row["プロジェクト名"]
-            cost = row["料金"]
+            project_name = row.get("プロジェクト名", "").strip()
+            cost = row.get("料金", 0)
 
-            if project_name in project_costs:
-                project_costs[project_name] += cost
-            else:
-                project_costs[project_name] = cost
+            if project_name:
+                project_costs[project_name] = project_costs.get(project_name, 0) + cost
 
         notion_projects = notion.databases.query(database_id=PROJECT_DB_ID)["results"]
 
