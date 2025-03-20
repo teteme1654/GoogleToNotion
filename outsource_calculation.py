@@ -116,6 +116,8 @@ def write_to_google_sheets():
     print("✅ Notion → Google Sheets へのデータ転送が完了しました。")
 
 
+import unicodedata
+
 def update_notion_outsource_cost():
     """Google Sheets から外注費を取得し、Notion のプロジェクト DB に反映する"""
     try:
@@ -129,7 +131,6 @@ def update_notion_outsource_cost():
         actual_headers = [h.strip() for h in actual_headers if h.strip()]  # 空白の要素を削除してトリム
         print("📌 実際のGoogle Sheets ヘッダー:", repr(actual_headers))
 
-
         # ✅ 期待するヘッダーを明示
         expected_headers = [
             "プロジェクト名", "外注スタッフ", "税", "開始日", "終了日", "日数",
@@ -137,9 +138,8 @@ def update_notion_outsource_cost():
         ]
         print("🔍 期待するヘッダー:", repr(expected_headers))
 
-        # ✅ 並び順を強制的に一致させる
-        actual_headers = sorted(actual_headers, key=lambda x: expected_headers.index(x) if x in expected_headers else len(expected_headers))
-        print("🛠 並び替え後のヘッダー:", repr(actual_headers))
+        # ✅ 並び順を強制的に一致させる（削除）
+        # 並び順の強制はやめる（不要な処理だったため）
 
         # ✅ データ型チェック
         print(f"📏 ヘッダーの長さ: 実際={len(actual_headers)}, 期待={len(expected_headers)}")
@@ -157,8 +157,8 @@ def update_notion_outsource_cost():
 
         print("📌 Unicode 正規化後のヘッダー:", repr(actual_headers))
 
-        # ✅ データ取得（expected_headers を指定）
-        data = sheet.get_all_records(expected_headers=expected_headers)
+        # ✅ `expected_headers` を削除してデータ取得
+        data = sheet.get_all_records()  # `expected_headers` は渡さずに取得
         print("📜 取得データ:", repr(data[:3]))  # 最初の3行を確認
 
         project_costs = {}
