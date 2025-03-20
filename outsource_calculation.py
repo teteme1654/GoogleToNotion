@@ -125,6 +125,7 @@ def update_notion_outsource_cost():
 
         # ✅ Google Sheets のヘッダー行を取得
         actual_headers = sheet.row_values(4)  # 4行目のヘッダーを取得
+        actual_headers = [h for h in actual_headers if h]  # 空白の要素を削除
         print("📌 実際のGoogle Sheets ヘッダー:", actual_headers)
 
         # ✅ 期待するヘッダーを明示
