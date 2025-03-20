@@ -135,8 +135,9 @@ def update_notion_outsource_cost():
         ]
         print("🔍 期待するヘッダー:", expected_headers)
 
-        print("🧐 余分なヘッダー:", set(actual_headers) - set(expected_headers))
-        print("🤔 欠けているヘッダー:", set(expected_headers) - set(actual_headers))
+        actual_headers = sorted(actual_headers, key=lambda x: expected_headers.index(x) if x in expected_headers else len(expected_headers))
+        print("🛠 並び替え後のヘッダー:", actual_headers)
+
 
 
         # ✅ データ取得（expected_headers を指定）
