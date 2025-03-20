@@ -55,8 +55,9 @@ def fetch_notion_data():
             tax_type = rate_info["tax"]
 
             project_entries.append([
-                project_name, staff_name, tax_type, start_date, end_date, days, standard_rate, "", "0", "0"
+                project_name, staff_name, tax_type, start_date, end_date, days, standard_rate, "", "0", "0", ""  # 末尾のカンマ対策
             ])
+
 
     return project_entries
 
@@ -99,10 +100,11 @@ def write_to_google_sheets():
     # Notionからデータ取得
     project_entries = fetch_notion_data()
 
-    # データ書き込み
+    # 余分なデータがないかチェックしつつ書き込む
     start_row = 5
     if project_entries:
-        sheet.update(range_name=f"B{start_row}:L{start_row + len(project_entries) - 1}", values=project_entries)
+        cleaned_entries = [entry[:11] for entry in project_entries]  # L列（11列）までのデータに制限
+        sheet.update(range_name=f"B{start_row}:L{start_row + len(cleaned_entries) - 1}", values=cleaned_entries)
 
     # **料金計算式の修正**
     for i in range(len(project_entries)):
@@ -114,17 +116,27 @@ def write_to_google_sheets():
 
 
 def update_notion_outsource_cost():
-    """ Google Sheets から外注費を取得し、Notion のプロジェクト DB に反映する """
+    """Google Sheets から外注費を取得し、Notion のプロジェクト DB に反映する"""
     try:
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_CREDENTIALS_FILE, scope)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
-        data = sheet.get_all_records(expected_headers=[
-                "プロジェクト名", "外注スタッフ", "税", "開始日", "終了日", "日数", 
-                "1日単価（標準）", "1日単価（修正）", "移動日数", "機材チェック日数", "料金"
-                ])
 
+        # ✅ Google Sheets のヘッダー行を取得
+        actual_headers = sheet.row_values(4)  # 4行目のヘッダーを取得
+        print("📌 実際のGoogle Sheets ヘッダー:", actual_headers)
+
+        # ✅ 期待するヘッダーを明示
+        expected_headers = [
+            "プロジェクト名", "外注スタッフ", "税", "開始日", "終了日", "日数",
+            "1日単価（標準）", "1日単価（修正）", "移動日数", "機材チェック日数", "料金"
+        ]
+        print("🔍 期待するヘッダー:", expected_headers)
+
+        # ✅ データ取得（expected_headers を指定）
+        data = sheet.get_all_records(expected_headers=expected_headers)
+        print("📊 取得データ:", data)
 
         project_costs = {}
 
