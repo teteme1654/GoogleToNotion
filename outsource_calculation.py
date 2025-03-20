@@ -129,6 +129,7 @@ def update_notion_outsource_cost():
         # ✅ Google Sheets のヘッダー行を取得
         actual_headers = sheet.row_values(4)  # 4行目のヘッダーを取得
         actual_headers = [h.strip() for h in actual_headers if h.strip()]  # 空白の要素を削除してトリム
+        actual_headers = list(dict.fromkeys(actual_headers))  # 重複削除（辞書で一意化）
         print("📌 実際のGoogle Sheets ヘッダー:", repr(actual_headers))
 
         # ✅ 期待するヘッダーを明示
@@ -136,29 +137,16 @@ def update_notion_outsource_cost():
             "プロジェクト名", "外注スタッフ", "税", "開始日", "終了日", "日数",
             "1日単価（標準）", "1日単価（修正）", "移動日数", "機材チェック日数", "料金"
         ]
-        print("🔍 期待するヘッダー:", repr(expected_headers))
 
-        # ✅ 並び順を強制的に一致させる（削除）
-        # 並び順の強制はやめる（不要な処理だったため）
-
-        # ✅ データ型チェック
-        print(f"📏 ヘッダーの長さ: 実際={len(actual_headers)}, 期待={len(expected_headers)}")
-        print(f"🛠 データ型: 実際={type(actual_headers)}, 期待={type(expected_headers)}")
-
-        # ✅ Unicodeコードポイントチェック（微妙な文字違いがないか確認）
-        for i, (act, exp) in enumerate(zip(actual_headers, expected_headers)):
-            print(f"🔠 {i+1}列目 - 実際: {[ord(c) for c in act]}, 期待: {[ord(c) for c in exp]}")
-
-        # Google Sheets から取得したヘッダーを正規化
-        actual_headers = [unicodedata.normalize("NFC", h.strip()) for h in actual_headers]
-
-        # 期待するヘッダーも正規化
+        # ✅ Unicode 正規化
+        actual_headers = [unicodedata.normalize("NFC", h) for h in actual_headers]
         expected_headers = [unicodedata.normalize("NFC", h) for h in expected_headers]
 
         print("📌 Unicode 正規化後のヘッダー:", repr(actual_headers))
 
-        # ✅ `expected_headers` を削除してデータ取得
-        data = sheet.get_all_records()  # `expected_headers` は渡さずに取得
+        # ✅ データ取得時に expected_headers を渡さない
+        data = sheet.get_all_records()
+
         print("📜 取得データ:", repr(data[:3]))  # 最初の3行を確認
 
         project_costs = {}
