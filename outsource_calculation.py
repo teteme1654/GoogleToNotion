@@ -135,6 +135,10 @@ def update_notion_outsource_cost():
         ]
         print("🔍 期待するヘッダー:", expected_headers)
 
+        print("🧐 余分なヘッダー:", set(actual_headers) - set(expected_headers))
+        print("🤔 欠けているヘッダー:", set(expected_headers) - set(actual_headers))
+
+
         # ✅ データ取得（expected_headers を指定）
         data = sheet.get_all_records(expected_headers=expected_headers)
         print("🔍 期待するヘッダー:", repr(expected_headers))
