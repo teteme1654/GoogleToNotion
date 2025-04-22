@@ -5,7 +5,7 @@ from notion_client import Client
 from datetime import datetime
 import time
 
-GOOGLE_CREDENTIALS_FILE = "/Users/user/Documents/GitHub/GoogleToNotion/credentials/notionsyncproject-e26760681b25.json"
+GOOGLE_CREDENTIALS_FILE = "/Users/keisuke/Documents/GitHub/GoogleToNotion/credentials/notionsyncproject-e26760681b25.json"
 SPREADSHEET_ID = "1a6fFq4ZNUd5YYqdrNsHnhXaWxeiptbE3dLWdZK_NuTg"
 SHEET_NAME = "4月2025"
 
@@ -38,7 +38,7 @@ def get_existing_notion_entries():
         client_name = properties["クライアント名"]["select"]["name"].strip() if properties["クライアント名"].get("select") else ""
 
         start_date = properties["案件期間"]["date"]["start"] if properties["案件期間"]["date"] else None
-        end_date = properties["案件期間"]["date"].get("end") or start_date
+        end_date = properties["案件期間"]["date"].get("end") or start_date if properties["案件期間"]["date"] else None
 
         if start_date:
             start_date = datetime.strptime(start_date[:10], "%Y-%m-%d")
@@ -121,7 +121,8 @@ def add_or_update_notion(client_name, project_name, location, vehicle, start_dat
         "クライアント名": {"select": {"name": client_name}},
         "場所": {"rich_text": [{"type": "text", "text": {"content": location or ""}}]},
         "車両": {"rich_text": [{"type": "text", "text": {"content": vehicle or ""}}]},
-        "タグ": {"multi_select": [{"name": "案件"}]}
+        "タグ": {"multi_select": [{"name": "案件"}]},
+        "請求月": {"select": {"name": str(formatted_start_date.month)}}
     }
     if entry_key in existing_entries:
         for entry in existing_entries[entry_key]:
