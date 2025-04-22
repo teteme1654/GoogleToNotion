@@ -5,7 +5,7 @@ from notion_client import Client
 from datetime import datetime
 import time
 
-GOOGLE_CREDENTIALS_FILE = "notionsyncproject-e26760681b25.json"
+GOOGLE_CREDENTIALS_FILE = "/Users/user/Documents/GitHub/GoogleToNotion/credentials/notionsyncproject-e26760681b25.json"
 SPREADSHEET_ID = "1a6fFq4ZNUd5YYqdrNsHnhXaWxeiptbE3dLWdZK_NuTg"
 SHEET_NAME = "4月2025"
 
