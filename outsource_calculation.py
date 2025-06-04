@@ -5,7 +5,7 @@ from notion_client import Client
 from datetime import datetime
 
 # ✅ 認証情報
-GOOGLE_CREDENTIALS_FILE = "notionsyncproject-e26760681b25.json"
+GOOGLE_CREDENTIALS_FILE = "/Users/keisuke/Documents/GitHub/GoogleToNotion/credentials/notionsyncproject-e26760681b25.json"
 SPREADSHEET_ID = "1L5t1VZFF_jYjQP9PDvoF9_3KBXQW_6qTf58qsZ8RJ7A"
 SHEET_NAME = "GTN_外注DB計算シート"
 

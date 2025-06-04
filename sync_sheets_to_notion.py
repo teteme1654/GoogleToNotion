@@ -7,7 +7,7 @@ import time
 
 GOOGLE_CREDENTIALS_FILE = "/Users/keisuke/Documents/GitHub/GoogleToNotion/credentials/notionsyncproject-e26760681b25.json"
 SPREADSHEET_ID = "1a6fFq4ZNUd5YYqdrNsHnhXaWxeiptbE3dLWdZK_NuTg"
-SHEET_NAME = "4月2025"
+SHEET_NAME = "6月2025"
 
 NOTION_API_KEY = "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"
 NOTION_DATABASE_ID = "1b762f86d9b080df84f6e623b6e8a5a0"
