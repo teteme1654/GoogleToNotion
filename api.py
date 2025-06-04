@@ -13,11 +13,15 @@ def update_notion():
 
 @app.route("/write_to_google_sheets", methods=["POST"])
 def write_sheets():
+    print("🔵 Flask: /write_to_google_sheets にリクエストが来た！")
     try:
         write_to_google_sheets()
+        print("🟢 Flask: write_to_google_sheets 実行完了！")
         return jsonify({"message": "Google Sheets 更新完了！"}), 200
     except Exception as e:
+        print(f"❌ Flask Error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/healthcheck", methods=["GET"])
 def healthcheck():
