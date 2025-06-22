@@ -1,0 +1,48 @@
+# --------------------------------------
+# ✅ 認証・秘密情報系（絶対にアップしない）
+.env
+*.json
+credentials/*.json
+
+# --------------------------------------
+# ✅ Python関連
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# 仮想環境フォルダ（必要に応じて）
+venv/
+.envrc
+.venv/
+
+# pipenv や poetry 用のファイル（不要ならコメントアウト可）
+Pipfile.lock
+poetry.lock
+
+# --------------------------------------
+# ✅ Jupyterやその他のエディタ履歴
+.ipynb_checkpoints/
+
+# --------------------------------------
+# ✅ OS・IDE依存ファイル
+.DS_Store
+Thumbs.db
+*.log
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# --------------------------------------
+# ✅ Streamlitキャッシュ
+.streamlit/config.toml
+.streamlit/secrets.toml
+
+# --------------------------------------
+# ✅ その他
+*.bak
+*.tmp

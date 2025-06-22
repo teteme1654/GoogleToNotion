@@ -4,18 +4,9 @@ from oauth2client.service_account import ServiceAccountCredentials
 from notion_client import Client
 from datetime import datetime
 import time
-import os
-from dotenv import load_dotenv
-
-# .envファイルから環境変数を読み込む
-load_dotenv()
-
-# 各種認証情報を取得
-NOTION_API_KEY = os.getenv("NOTION_API_KEY")
-NOTION_DATABASE_ID = os.getenv("NOTION_PROJECT_DB_ID")
-GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE")
-
-notion = Client(auth=NOTION_API_KEY)
+import streamlit as st
+import tempfile
+import json
 
 update_log = []
 sync_log = []
@@ -30,10 +21,9 @@ def format_date(date_str):
         print(f"[エラー] 日付変換失敗: {date_str} → {e}")
         return None
 
-
-def get_existing_notion_entries():
+def get_existing_notion_entries(notion, database_id):
     existing_entries = defaultdict(list)
-    response = notion.databases.query(database_id=NOTION_DATABASE_ID)
+    response = notion.databases.query(database_id=database_id)
     for page in response["results"]:
         page_id = page["id"]
         properties = page["properties"]
@@ -57,7 +47,7 @@ def get_existing_notion_entries():
         })
     return existing_entries
 
-def add_heading_block(parent_page_id, text):
+def add_heading_block(notion, parent_page_id, text):
     try:
         notion.blocks.children.append(
             block_id=parent_page_id,
@@ -73,7 +63,7 @@ def add_heading_block(parent_page_id, text):
     except Exception as e:
         print(f"[エラー] 見出し追加失敗（{text}）: {e}")
 
-def add_paragraph_block(parent_page_id, text):
+def add_paragraph_block(notion, parent_page_id, text):
     try:
         notion.blocks.children.append(
             block_id=parent_page_id,
@@ -89,7 +79,7 @@ def add_paragraph_block(parent_page_id, text):
     except Exception as e:
         print(f"[エラー] 段落追加失敗（{text}）: {e}")
 
-def add_child_page_using_create(parent_page_id, title):
+def add_child_page_using_create(notion, parent_page_id, title):
     try:
         notion.pages.create(
             parent={"page_id": parent_page_id},
@@ -99,18 +89,18 @@ def add_child_page_using_create(parent_page_id, title):
     except Exception as e:
         print(f"[エラー] 子ページ作成失敗（{title}）: {e}")
 
-def add_invoice_blocks(parent_page_id):
-    add_heading_block(parent_page_id, "このプロジェクトについて")
+def add_invoice_blocks(notion, parent_page_id):
+    add_heading_block(notion, parent_page_id, "このプロジェクトについて")
     time.sleep(0.5)
-    add_paragraph_block(parent_page_id, "\n\n")
+    add_paragraph_block(notion, parent_page_id, "\n\n")
     time.sleep(0.5)
-    add_child_page_using_create(parent_page_id, "請求関連")
+    add_child_page_using_create(notion, parent_page_id, "請求関連")
     time.sleep(0.5)
-    add_paragraph_block(parent_page_id, "\n\n")
+    add_paragraph_block(notion, parent_page_id, "\n\n")
     time.sleep(0.5)
-    add_child_page_using_create(parent_page_id, "技術仕様")
+    add_child_page_using_create(notion, parent_page_id, "技術仕様")
 
-def add_or_update_notion(client_name, project_name, location, vehicle, start_date, end_date, existing_entries):
+def add_or_update_notion(notion, database_id, client_name, project_name, location, vehicle, start_date, end_date, existing_entries):
     formatted_start_date = format_date(start_date)
     formatted_end_date = format_date(end_date) if end_date else formatted_start_date
     if not formatted_start_date or not formatted_end_date:
@@ -142,10 +132,10 @@ def add_or_update_notion(client_name, project_name, location, vehicle, start_dat
         return
     try:
         new_page = notion.pages.create(
-            parent={"database_id": NOTION_DATABASE_ID},
+            parent={"database_id": database_id},
             properties={"プロジェクト名": {"title": [{"type": "text", "text": {"content": project_name}}]}, **props}
         )
-        add_invoice_blocks(new_page["id"])
+        add_invoice_blocks(notion, new_page["id"])
         sync_log.append(entry_key)
         existing_entries[entry_key].append({"page_id": new_page["id"], "start_date": formatted_start_date, "end_date": formatted_end_date})
         print(f"[登録成功] {entry_key}")
@@ -153,11 +143,19 @@ def add_or_update_notion(client_name, project_name, location, vehicle, start_dat
         print(f"[エラー] Notion 登録失敗: {e}")
 
 def sync_sheets_to_notion(spreadsheet_id, sheet_name):
-    existing_entries = get_existing_notion_entries()
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_CREDENTIALS_FILE, scope)
+    # secrets の値から認証ファイルを一時ファイルに保存
+    with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as f:
+        json.dump(st.secrets["google_credentials"], f)
+        f.flush()
+        credentials_path = f.name
+
+    creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     client = gspread.authorize(creds)
     data = client.open_by_key(spreadsheet_id).worksheet(sheet_name).get_all_values()
+
+    notion = Client(auth=st.secrets["notion_token"])
+    database_id = st.secrets["project_db_id"]
+    existing_entries = get_existing_notion_entries(notion, database_id)
     project_entries = defaultdict(lambda: {"dates": [], "location": "", "vehicle": ""})
 
     for row_base in range(3, len(data) - 3, 4):
@@ -194,14 +192,8 @@ def sync_sheets_to_notion(spreadsheet_id, sheet_name):
             continue
         start = min(val["dates"], key=lambda d: datetime.strptime(d, "%m/%d"))
         end = max(val["dates"], key=lambda d: datetime.strptime(d, "%m/%d"))
-        add_or_update_notion(client_name, project_name, val["location"], val["vehicle"], start, end, existing_entries)
+        add_or_update_notion(notion, database_id, client_name, project_name, val["location"], val["vehicle"], start, end, existing_entries)
 
     print("[完了] Notionとの同期が完了しました！")
     print(f"[更新済み] {update_log}")
     print(f"[新規追加] {sync_log}")
-
-if __name__ == "__main__":
-    # デフォルト引数を用意しておけば、ターミナル実行も可能に保てる
-    DEFAULT_SPREADSHEET_ID = "1a6fFq4ZNUd5YYqdrNsHnhXaWxeiptbE3dLWdZK_NuTg"
-    DEFAULT_SHEET_NAME = "6月2025"
-    sync_sheets_to_notion(DEFAULT_SPREADSHEET_ID, DEFAULT_SHEET_NAME)
