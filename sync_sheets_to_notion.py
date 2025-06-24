@@ -11,6 +11,7 @@ import json
 update_log = []
 sync_log = []
 
+
 def format_date(date_str):
     if not date_str or date_str.strip() == "":
         return None
