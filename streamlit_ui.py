@@ -4,14 +4,6 @@ from sync_sheets_to_notion import sync_sheets_to_notion
 import tempfile
 import json
 
-
-try:
-    json.loads(st.secrets["google_credentials_json"])
-    st.write("✅ JSON形式：問題なし")
-except Exception as e:
-    st.write("❌ JSONパース失敗:", e)
-
-
 # 🔐 secrets の読み込み（全スクリプト統一でst.secretsを使用）
 NOTION_API_KEY = st.secrets["notion_token"]
 PROJECT_DB_ID = st.secrets["project_db_id"]
