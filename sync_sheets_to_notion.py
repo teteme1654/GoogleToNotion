@@ -11,7 +11,6 @@ import json
 update_log = []
 sync_log = []
 
-
 def format_date(date_str):
     if not date_str or date_str.strip() == "":
         return None
@@ -27,13 +26,21 @@ def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
     response = notion.databases.query(database_id=NOTION_DATABASE_ID)
     for page in response["results"]:
         page_id = page["id"]
-        properties = page["properties"]
+        properties = page.get("properties", {})
 
-        project_name = properties["プロジェクト名"]["title"][0]["text"]["content"].strip() if properties["プロジェクト名"]["title"] else ""
-        client_name = properties["クライアント名"].get("select", {}).get("name", "").strip()
+        title_raw = properties.get("プロジェクト名", {}).get("title", [])
+        if title_raw and isinstance(title_raw[0], dict):
+            project_name = title_raw[0].get("text", {}).get("content", "").strip()
+        else:
+            project_name = ""
 
-        start_date = properties["案件期間"].get("date", {}).get("start")
-        end_date = properties["案件期間"].get("date", {}).get("end") or start_date
+        client_raw = properties.get("クライアント名") or {}
+        client_name = client_raw.get("select", {}).get("name", "").strip()
+
+        period_raw = properties.get("案件期間") or {}
+        date_raw = period_raw.get("date") or {}
+        start_date = date_raw.get("start")
+        end_date = date_raw.get("end") or start_date
 
         if start_date:
             start_date = datetime.strptime(start_date[:10], "%Y-%m-%d")
