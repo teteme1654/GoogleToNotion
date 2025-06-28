@@ -35,7 +35,8 @@ def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
             project_name = ""
 
         client_raw = properties.get("クライアント名") or {}
-        client_name = client_raw.get("select", {}).get("name", "").strip()
+        client_select = client_raw.get("select") or {}
+        client_name = client_select.get("name", "").strip()
 
         period_raw = properties.get("案件期間") or {}
         date_raw = period_raw.get("date") or {}
@@ -124,7 +125,8 @@ def add_or_update_notion(notion, NOTION_DATABASE_ID, client_name, project_name, 
         "場所": {"rich_text": [{"type": "text", "text": {"content": location or ""}}]},
         "車両": {"rich_text": [{"type": "text", "text": {"content": vehicle or ""}}]},
         "タグ": {"multi_select": [{"name": "案件"}]},
-        "請求月": {"select": {"name": str(formatted_start_date.month)}}
+        "請求月": {"select": {"name": str(formatted_start_date.month)}},
+        "年度": {"select": {"name": "2025"}}
     }
     if entry_key in existing_entries:
         for entry in existing_entries[entry_key]:
