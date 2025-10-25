@@ -23,7 +23,7 @@ def format_date(date_str):
 
 def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
     existing_entries = defaultdict(list)
-    response = notion.request("POST", f"/v1/databases/{NOTION_DATABASE_ID}/query", {})
+    response = notion.databases.query(database_id=NOTION_DATABASE_ID)
     for page in response["results"]:
         page_id = page["id"]
         properties = page.get("properties", {})
@@ -55,6 +55,7 @@ def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
             "end_date": end_date
         })
     return existing_entries
+
 
 # 以下 unchanged
 
