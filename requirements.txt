@@ -1,6 +1,6 @@
 streamlit
 gspread
-notion-client>=2.0.0
+notion-client==2.6.0
 oauth2client
 google-auth
 google-auth-oauthlib
