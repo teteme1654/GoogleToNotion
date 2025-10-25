@@ -23,38 +23,52 @@ def format_date(date_str):
 
 def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
     existing_entries = defaultdict(list)
-    response = notion.databases.query(database_id=NOTION_DATABASE_ID)
-    for page in response["results"]:
-        page_id = page["id"]
-        properties = page.get("properties", {})
 
-        title_raw = properties.get("プロジェクト名", {}).get("title", [])
-        if title_raw and isinstance(title_raw[0], dict):
-            project_name = title_raw[0].get("text", {}).get("content", "").strip()
+    start_cursor = None
+    while True:
+        response = notion.databases.query(
+            database_id=NOTION_DATABASE_ID,
+            **({"start_cursor": start_cursor} if start_cursor else {})
+        )
+
+        for page in response["results"]:
+            page_id = page["id"]
+            properties = page.get("properties", {})
+
+            title_raw = properties.get("プロジェクト名", {}).get("title", [])
+            if title_raw and isinstance(title_raw[0], dict):
+                project_name = title_raw[0].get("text", {}).get("content", "").strip()
+            else:
+                project_name = ""
+
+            client_raw = properties.get("クライアント名") or {}
+            client_select = client_raw.get("select") or {}
+            client_name = client_select.get("name", "").strip()
+
+            period_raw = properties.get("案件期間") or {}
+            date_raw = period_raw.get("date") or {}
+            start_date = date_raw.get("start")
+            end_date = date_raw.get("end") or start_date
+
+            if start_date:
+                start_date = datetime.strptime(start_date[:10], "%Y-%m-%d")
+            if end_date:
+                end_date = datetime.strptime(end_date[:10], "%Y-%m-%d")
+
+            entry_key = (project_name, client_name)
+            existing_entries[entry_key].append({
+                "page_id": page_id,
+                "start_date": start_date,
+                "end_date": end_date
+            })
+
+        if response.get("has_more"):
+            start_cursor = response.get("next_cursor")
         else:
-            project_name = ""
+            break
 
-        client_raw = properties.get("クライアント名") or {}
-        client_select = client_raw.get("select") or {}
-        client_name = client_select.get("name", "").strip()
-
-        period_raw = properties.get("案件期間") or {}
-        date_raw = period_raw.get("date") or {}
-        start_date = date_raw.get("start")
-        end_date = date_raw.get("end") or start_date
-
-        if start_date:
-            start_date = datetime.strptime(start_date[:10], "%Y-%m-%d")
-        if end_date:
-            end_date = datetime.strptime(end_date[:10], "%Y-%m-%d")
-
-        entry_key = (project_name, client_name)
-        existing_entries[entry_key].append({
-            "page_id": page_id,
-            "start_date": start_date,
-            "end_date": end_date
-        })
     return existing_entries
+
 
 def add_heading_block(notion, parent_page_id, text):
     try:
