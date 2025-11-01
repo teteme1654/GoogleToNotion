@@ -13,6 +13,24 @@ sync_log = []
 
 ##戻したい
 
+def query_all_notion_pages(notion, database_id, **query_kwargs):
+    start_cursor = None
+    while True:
+        params = dict(query_kwargs)
+        if start_cursor:
+            params["start_cursor"] = start_cursor
+
+        response = notion.databases.query(database_id=database_id, **params)
+        for page in response.get("results", []):
+            yield page
+
+        if not response.get("has_more"):
+            break
+        start_cursor = response.get("next_cursor")
+        if not start_cursor:
+            break
+
+
 def format_date(date_str):
     if not date_str or date_str.strip() == "":
         return None
@@ -25,17 +43,23 @@ def format_date(date_str):
 
 def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
     existing_entries = defaultdict(list)
-    response = notion.databases.query(database_id=NOTION_DATABASE_ID)
-    print("Sample Notion page:", json.dumps(response["results"][0]["properties"], ensure_ascii=False, indent=2))
-    for page in response["results"]:
+    for page in query_all_notion_pages(notion, NOTION_DATABASE_ID):
         page_id = page["id"]
         properties = page.get("properties", {})
 
         title_raw = properties.get("プロジェクト名", {}).get("title", [])
-        if title_raw and isinstance(title_raw[0], dict):
-            project_name = title_raw[0].get("text", {}).get("content", "").strip()
-        else:
-            project_name = ""
+        project_name_parts = []
+        for title_part in title_raw:
+            if not isinstance(title_part, dict):
+                continue
+            # plain_text is available for all rich text types (mentions, text, etc.)
+            plain_text = title_part.get("plain_text")
+            if plain_text is None:
+                text_info = title_part.get("text", {})
+                plain_text = text_info.get("content")
+            if plain_text:
+                project_name_parts.append(plain_text)
+        project_name = "".join(project_name_parts).strip()
 
         client_raw = properties.get("クライアント名") or {}
         client_select = client_raw.get("select") or {}
