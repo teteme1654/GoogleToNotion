@@ -58,6 +58,9 @@ def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
         })
     return existing_entries
 
+
+# 以下 unchanged
+
 def add_heading_block(notion, parent_page_id, text):
     try:
         notion.blocks.children.append(
@@ -110,6 +113,9 @@ def add_invoice_blocks(notion, parent_page_id):
     add_paragraph_block(notion, parent_page_id, "\n\n")
     time.sleep(0.5)
     add_child_page_using_create(notion, parent_page_id, "技術仕様")
+
+# unchanged 以降は省略なしで編集されているので維持
+
 
 def add_or_update_notion(notion, NOTION_DATABASE_ID, client_name, project_name, location, vehicle, start_date, end_date, existing_entries):
     formatted_start_date = format_date(start_date)
