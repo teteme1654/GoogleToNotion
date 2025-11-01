@@ -26,6 +26,7 @@ def format_date(date_str):
 def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
     existing_entries = defaultdict(list)
     response = notion.databases.query(database_id=NOTION_DATABASE_ID)
+    print("Sample Notion page:", json.dumps(response["results"][0]["properties"], ensure_ascii=False, indent=2))
     for page in response["results"]:
         page_id = page["id"]
         properties = page.get("properties", {})

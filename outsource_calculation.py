@@ -30,12 +30,30 @@ with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix=".json") as tem
     temp.write(GOOGLE_CREDENTIALS_JSON)
     GOOGLE_CREDENTIALS_FILE = temp.name
 
+def query_all_pages(notion, database_id, **query_kwargs):
+    start_cursor = None
+    while True:
+        params = dict(query_kwargs)
+        if start_cursor:
+            params["start_cursor"] = start_cursor
+
+        response = notion.databases.query(database_id=database_id, **params)
+        for result in response.get("results", []):
+            yield result
+
+        if not response.get("has_more"):
+            break
+        start_cursor = response.get("next_cursor")
+        if not start_cursor:
+            break
+
 def fetch_notion_data():
     notion = Client(auth=NOTION_API_KEY)
-    projects = notion.databases.query(
-        database_id=PROJECT_DB_ID,
+    projects = list(query_all_pages(
+        notion,
+        PROJECT_DB_ID,
         filter={"property": "進捗", "status": {"equals": "請求済"}}
-    )["results"]
+    ))
 
     outsource_rates, id_to_name_map = fetch_outsource_rates(notion)
 
@@ -70,11 +88,12 @@ def fetch_notion_data():
     return project_entries
 
 def fetch_outsource_rates(notion):
-    response = notion.databases.query(database_id=OUTSOURCE_DB_ID)
+    response_results = list(query_all_pages(notion, OUTSOURCE_DB_ID))
+
     outsource_rates = {}
     id_to_name_map = {}
 
-    for record in response["results"]:
+    for record in response_results:
         staff_id = record["id"]
         staff_name = record["properties"]["名前"]["title"][0]["text"]["content"]
         tax_property = record["properties"].get("税", {})
@@ -163,7 +182,7 @@ def update_notion_outsource_cost(notion_token=NOTION_API_KEY, project_db_id=PROJ
             if project_name:
                 project_costs[project_name] = project_costs.get(project_name, 0) + cost
 
-        notion_projects = notion.databases.query(database_id=project_db_id)["results"]
+        notion_projects = list(query_all_pages(notion, project_db_id))
 
         for project in notion_projects:
             notion_project_name = project["properties"]["プロジェクト名"]["title"][0]["text"]["content"]
