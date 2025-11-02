@@ -1,12 +1,14 @@
 from collections import defaultdict
+from datetime import datetime
+import json
+import re
+import tempfile
+import time
+
 import gspread
 from google.oauth2.service_account import Credentials
 from notion_client import Client
-from datetime import datetime
-import time
 import streamlit as st
-import tempfile
-import json
 
 update_log = []
 sync_log = []
@@ -30,13 +32,49 @@ def query_all_notion_pages(notion, database_id, **query_kwargs):
         if not start_cursor:
             break
 
+def determine_fiscal_year_value(reference_date=None):
+    """Return the fiscal year start year (e.g. 2024 for 2024年度)."""
+    reference_date = reference_date or datetime.now()
+    if reference_date.month >= 4:
+        return reference_date.year
+    return reference_date.year - 1
 
-def format_date(date_str):
+
+
+def format_date(date_str, fiscal_year=None):
     if not date_str or date_str.strip() == "":
         return None
     try:
-        current_year = datetime.now().year
-        return datetime.strptime(f"{current_year}/{date_str}", "%Y/%m/%d")
+        cleaned = date_str.strip()
+        digit_parts = re.findall(r"\d+", cleaned)
+
+        year = None
+        month = None
+        day = None
+
+        for part in digit_parts:
+            value = int(part)
+            if year is None and len(part) == 4:
+                year = value
+                continue
+            if month is None:
+                month = value
+                continue
+            if day is None:
+                day = value
+                break
+
+        if year is not None:
+            if month is None or day is None:
+                raise ValueError(f"月日が不足しています: {date_str}")
+            return datetime(year, month, day)
+
+        if month is not None and day is not None:
+            fiscal_year = fiscal_year if fiscal_year is not None else determine_fiscal_year_value()
+            year = fiscal_year + 1 if month <= 3 else fiscal_year
+            return datetime(year, month, day)
+
+        raise ValueError(f"日付形式を解釈できません: {date_str}")
     except ValueError as e:
         print(f"[エラー] 日付変換失敗: {date_str} → {e}")
         return None
@@ -82,6 +120,41 @@ def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
             "end_date": end_date
         })
     return existing_entries
+
+# 日本の会計年度（4月〜翌年3月）に沿った年度ラベルを生成する
+def determine_fiscal_year_label(reference_date=None):
+    return str(determine_fiscal_year_value(reference_date))
+
+
+def infer_fiscal_year_start_from_sheet(sheet_name):
+    if not sheet_name:
+        return None
+
+    digit_parts = re.findall(r"\d+", sheet_name)
+    if not digit_parts:
+        return None
+
+    year = None
+    month = None
+
+    for part in digit_parts:
+        value = int(part)
+        if year is None and len(part) == 4:
+            year = value
+            continue
+        if month is None and 1 <= value <= 12:
+            month = value
+
+    if year is None:
+        return None
+
+    if month is not None and month <= 3:
+        return year - 1
+
+    return year
+
+
+
 
 
 # 以下 unchanged
@@ -142,9 +215,33 @@ def add_invoice_blocks(notion, parent_page_id):
 # unchanged 以降は省略なしで編集されているので維持
 
 
-def add_or_update_notion(notion, NOTION_DATABASE_ID, client_name, project_name, location, vehicle, start_date, end_date, existing_entries):
-    formatted_start_date = format_date(start_date)
-    formatted_end_date = format_date(end_date) if end_date else formatted_start_date
+def add_or_update_notion(
+    notion,
+    NOTION_DATABASE_ID,
+    client_name,
+    project_name,
+    location,
+    vehicle,
+    start_date,
+    end_date,
+    existing_entries,
+    fiscal_year_start=None,
+):
+    base_fiscal_year = fiscal_year_start if fiscal_year_start is not None else determine_fiscal_year_value()
+
+    if isinstance(start_date, datetime):
+        formatted_start_date = start_date
+        base_fiscal_year = determine_fiscal_year_value(formatted_start_date)
+    else:
+        formatted_start_date = format_date(start_date, base_fiscal_year)
+
+    if isinstance(end_date, datetime):
+        formatted_end_date = end_date
+    elif end_date:
+        formatted_end_date = format_date(end_date, base_fiscal_year)
+    else:
+        formatted_end_date = formatted_start_date
+
     if not formatted_start_date or not formatted_end_date:
         print(f"[エラー] 日付がNoneです: {project_name} ({client_name})")
         return
@@ -152,6 +249,7 @@ def add_or_update_notion(notion, NOTION_DATABASE_ID, client_name, project_name, 
         formatted_start_date, formatted_end_date = formatted_end_date, formatted_start_date
     entry_key = (project_name.strip(), client_name.strip())
     print(f"[送信チェック] {entry_key}, {formatted_start_date} → {formatted_end_date}")
+    fiscal_year_label = determine_fiscal_year_label(formatted_start_date)
     props = {
         "案件期間": {"date": {"start": formatted_start_date.strftime("%Y-%m-%d"), "end": formatted_end_date.strftime("%Y-%m-%d")}},
         "クライアント名": {"select": {"name": client_name}},
@@ -159,7 +257,7 @@ def add_or_update_notion(notion, NOTION_DATABASE_ID, client_name, project_name, 
         "車両": {"rich_text": [{"type": "text", "text": {"content": vehicle or ""}}]},
         "タグ": {"multi_select": [{"name": "案件"}]},
         "請求月": {"select": {"name": str(formatted_start_date.month)}},
-        "年度": {"select": {"name": "2025"}}
+        "年度": {"select": {"name": fiscal_year_label}}
     }
     if entry_key in existing_entries:
         for entry in existing_entries[entry_key]:
@@ -200,14 +298,15 @@ def sync_sheets_to_notion(sheet_name):
     client = gspread.authorize(creds)
 
     data = client.open_by_key(spreadsheet_id).worksheet(sheet_name).get_all_values()
+    fiscal_year_start = infer_fiscal_year_start_from_sheet(sheet_name) or determine_fiscal_year_value()
     project_entries = defaultdict(lambda: {"dates": [], "location": "", "vehicle": ""})
 
     for row_base in range(3, len(data) - 3, 4):
         date_raw = data[row_base][0]
-        formatted_date = format_date(date_raw)
+        formatted_date = format_date(date_raw, fiscal_year_start)
         if not formatted_date:
             continue
-        date_str = formatted_date.strftime("%m/%d")
+
 
         for col in range(4, len(data[row_base]), 2):
             if col + 1 >= len(data[row_base]):
@@ -223,7 +322,7 @@ def sync_sheets_to_notion(sheet_name):
 
             if project_name:
                 entry_key = (project_name, client_name)
-                project_entries[entry_key]["dates"].append(date_str)
+                project_entries[entry_key]["dates"].append(formatted_date)
                 project_entries[entry_key]["location"] = location
                 project_entries[entry_key]["vehicle"] = vehicle
 
@@ -234,9 +333,20 @@ def sync_sheets_to_notion(sheet_name):
     for (project_name, client_name), val in project_entries.items():
         if not val["dates"]:
             continue
-        start = min(val["dates"], key=lambda d: datetime.strptime(d, "%m/%d"))
-        end = max(val["dates"], key=lambda d: datetime.strptime(d, "%m/%d"))
-        add_or_update_notion(notion, notion_db_id, client_name, project_name, val["location"], val["vehicle"], start, end, existing_entries)
+        start = min(val["dates"])
+        end = max(val["dates"])
+        add_or_update_notion(
+            notion,
+            notion_db_id,
+            client_name,
+            project_name,
+            val["location"],
+            val["vehicle"],
+            start,
+            end,
+            existing_entries,
+            fiscal_year_start,
+        )
 
     print("[完了] Notionとの同期が完了しました！")
     print(f"[更新済み] {update_log}")
