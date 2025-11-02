@@ -1,34 +1,109 @@
 import gspread
-import unicodedata
 from oauth2client.service_account import ServiceAccountCredentials
 from notion_client import Client
 from datetime import datetime
-import streamlit as st
 import tempfile
 import os
+from functools import lru_cache
 from dotenv import load_dotenv
 
-# ✅ 認証情報の取得
-if st.secrets:
-    NOTION_API_KEY = st.secrets["notion_token"].strip()
-    PROJECT_DB_ID = st.secrets["project_db_id"].strip()
-    OUTSOURCE_DB_ID = st.secrets["outsource_db_id"].strip()
-    GOOGLE_CREDENTIALS_JSON = st.secrets["google_credentials_json"]
-    SPREADSHEET_ID = st.secrets["outsource_spreadsheet_id"]
-    SHEET_NAME = st.secrets["outsource_sheet_name"]
-else:
-    load_dotenv()
-    NOTION_API_KEY = os.getenv("NOTION_API_KEY")
-    PROJECT_DB_ID = os.getenv("NOTION_PROJECT_DB_ID")
-    OUTSOURCE_DB_ID = os.getenv("NOTION_OUTSOURCE_DB_ID")
-    GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
-    SPREADSHEET_ID = os.getenv("OUTSOURCE_SPREADSHEET_ID")
-    SHEET_NAME = os.getenv("OUTSOURCE_SHEET_NAME")
+try:
+    import streamlit as st
+    from streamlit.errors import StreamlitSecretNotFoundError
+except ModuleNotFoundError:  # pragma: no cover - Streamlit is optional for the Flask API runtime
+    st = None
 
-# 一時ファイルとしてGoogle認証情報を保存
-with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix=".json") as temp:
-    temp.write(GOOGLE_CREDENTIALS_JSON)
-    GOOGLE_CREDENTIALS_FILE = temp.name
+    class StreamlitSecretNotFoundError(Exception):
+        """Fallback error used when Streamlit is not installed."""
+
+
+_GOOGLE_CREDENTIALS_FILE = None
+
+
+def _read_streamlit_secrets():
+    if not st:
+        return None
+
+    try:
+        secrets = st.secrets
+    except StreamlitSecretNotFoundError:
+        return None
+    except Exception:
+        return None
+
+    # If the secrets object exists but is empty, treat it as missing.
+    try:
+        if not secrets:
+            return None
+    except StreamlitSecretNotFoundError:
+        return None
+
+    return dict(secrets)
+
+
+def _normalize_value(value):
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _required_config_values(raw_config):
+    source = dict(raw_config)
+
+    config = {
+        "NOTION_API_KEY": _normalize_value(source.get("notion_token")),
+        "PROJECT_DB_ID": _normalize_value(source.get("project_db_id")),
+        "OUTSOURCE_DB_ID": _normalize_value(source.get("outsource_db_id")),
+        "GOOGLE_CREDENTIALS_JSON": source.get("google_credentials_json"),
+        "SPREADSHEET_ID": _normalize_value(source.get("outsource_spreadsheet_id")),
+        "SHEET_NAME": _normalize_value(source.get("outsource_sheet_name")),
+    }
+
+    missing_keys = [key for key, value in config.items() if not value]
+    if missing_keys:
+        raise RuntimeError(
+            "Missing configuration values: " + ", ".join(missing_keys)
+        )
+
+    return config
+
+
+def _load_config_from_environment():
+    load_dotenv()
+    env_config = {
+        "notion_token": os.getenv("NOTION_API_KEY"),
+        "project_db_id": os.getenv("NOTION_PROJECT_DB_ID"),
+        "outsource_db_id": os.getenv("NOTION_OUTSOURCE_DB_ID"),
+        "google_credentials_json": os.getenv("GOOGLE_CREDENTIALS_JSON"),
+        "outsource_spreadsheet_id": os.getenv("OUTSOURCE_SPREADSHEET_ID"),
+        "outsource_sheet_name": os.getenv("OUTSOURCE_SHEET_NAME"),
+    }
+    return _required_config_values(env_config)
+
+
+@lru_cache(maxsize=1)
+def get_config():
+    secrets = _read_streamlit_secrets()
+    if secrets:
+        return _required_config_values(secrets)
+
+    return _load_config_from_environment()
+
+
+def _ensure_google_credentials_file(credentials_json):
+    global _GOOGLE_CREDENTIALS_FILE
+
+    if _GOOGLE_CREDENTIALS_FILE and os.path.exists(_GOOGLE_CREDENTIALS_FILE):
+        return _GOOGLE_CREDENTIALS_FILE
+
+    if not credentials_json:
+        raise RuntimeError("Google credentials JSON is missing.")
+
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as temp:
+        temp.write(credentials_json)
+        _GOOGLE_CREDENTIALS_FILE = temp.name
+
+    return _GOOGLE_CREDENTIALS_FILE
 
 def query_all_pages(notion, database_id, **query_kwargs):
     start_cursor = None
@@ -47,15 +122,22 @@ def query_all_pages(notion, database_id, **query_kwargs):
         if not start_cursor:
             break
 
-def fetch_notion_data():
-    notion = Client(auth=NOTION_API_KEY)
-    projects = list(query_all_pages(
-        notion,
-        PROJECT_DB_ID,
-        filter={"property": "進捗", "status": {"equals": "請求済"}}
-    ))
+def fetch_notion_data(notion_token=None, project_db_id=None, outsource_db_id=None):
+    config = get_config()
+    notion_token = notion_token or config["NOTION_API_KEY"]
+    project_db_id = project_db_id or config["PROJECT_DB_ID"]
+    outsource_db_id = outsource_db_id or config["OUTSOURCE_DB_ID"]
 
-    outsource_rates, id_to_name_map = fetch_outsource_rates(notion)
+    notion = Client(auth=notion_token)
+    projects = list(
+        query_all_pages(
+            notion,
+            project_db_id,
+            filter={"property": "進捗", "status": {"equals": "請求済"}},
+        )
+    )
+
+    outsource_rates, id_to_name_map = fetch_outsource_rates(notion, outsource_db_id)
 
     project_entries = []
 
@@ -87,8 +169,8 @@ def fetch_notion_data():
 
     return project_entries
 
-def fetch_outsource_rates(notion):
-    response_results = list(query_all_pages(notion, OUTSOURCE_DB_ID))
+def fetch_outsource_rates(notion, outsource_db_id):
+    response_results = list(query_all_pages(notion, outsource_db_id))
 
     outsource_rates = {}
     id_to_name_map = {}
@@ -104,8 +186,25 @@ def fetch_outsource_rates(notion):
 
     return outsource_rates, id_to_name_map
 
-def write_to_google_sheets(notion_token=NOTION_API_KEY, project_db_id=PROJECT_DB_ID, outsource_db_id=OUTSOURCE_DB_ID, credentials_file=GOOGLE_CREDENTIALS_FILE, outsource_spreadsheet_id=SPREADSHEET_ID, outsource_sheet_name=SHEET_NAME):
+def write_to_google_sheets(
+    notion_token=None,
+    project_db_id=None,
+    outsource_db_id=None,
+    credentials_file=None,
+    outsource_spreadsheet_id=None,
+    outsource_sheet_name=None,
+):
+    config = get_config()
+    notion_token = notion_token or config["NOTION_API_KEY"]
+    project_db_id = project_db_id or config["PROJECT_DB_ID"]
+    outsource_db_id = outsource_db_id or config["OUTSOURCE_DB_ID"]
+    outsource_spreadsheet_id = outsource_spreadsheet_id or config["SPREADSHEET_ID"]
+    outsource_sheet_name = outsource_sheet_name or config["SHEET_NAME"]
+
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    credentials_file = credentials_file or _ensure_google_credentials_file(
+        config["GOOGLE_CREDENTIALS_JSON"]
+    )
     creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_file, scope)
     client = gspread.authorize(creds)
 
@@ -118,12 +217,11 @@ def write_to_google_sheets(notion_token=NOTION_API_KEY, project_db_id=PROJECT_DB
 
     sheet.update(range_name="B4:L4", values=[headers])
 
-    global NOTION_API_KEY, PROJECT_DB_ID, OUTSOURCE_DB_ID
-    NOTION_API_KEY = notion_token
-    PROJECT_DB_ID = project_db_id
-    OUTSOURCE_DB_ID = outsource_db_id
-
-    project_entries = fetch_notion_data()
+    project_entries = fetch_notion_data(
+        notion_token=notion_token,
+        project_db_id=project_db_id,
+        outsource_db_id=outsource_db_id,
+    )
 
     start_row = 5
     if project_entries:
@@ -137,14 +235,28 @@ def write_to_google_sheets(notion_token=NOTION_API_KEY, project_db_id=PROJECT_DB
 
     print("✅ Notion → Google Sheets へのデータ転送が完了しました。")
 
-def update_notion_outsource_cost(notion_token=NOTION_API_KEY, project_db_id=PROJECT_DB_ID, outsource_db_id=OUTSOURCE_DB_ID, outsource_spreadsheet_id=SPREADSHEET_ID, outsource_sheet_name=SHEET_NAME):
+def update_notion_outsource_cost(
+    notion_token=None,
+    project_db_id=None,
+    outsource_db_id=None,
+    outsource_spreadsheet_id=None,
+    outsource_sheet_name=None,
+):
     try:
-        
+        config = get_config()
+
+        notion_token = notion_token or config["NOTION_API_KEY"]
+        project_db_id = project_db_id or config["PROJECT_DB_ID"]
+        outsource_db_id = outsource_db_id or config["OUTSOURCE_DB_ID"]
+        outsource_spreadsheet_id = outsource_spreadsheet_id or config["SPREADSHEET_ID"]
+        outsource_sheet_name = outsource_sheet_name or config["SHEET_NAME"]
+
         notion = Client(auth=notion_token)
         print("🧪 渡された NOTION TOKEN:", repr(notion_token[:10]))
 
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_CREDENTIALS_FILE, scope)
+        credentials_file = _ensure_google_credentials_file(config["GOOGLE_CREDENTIALS_JSON"])
+        creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_file, scope)
         client = gspread.authorize(creds)
 
         sheet = client.open_by_key(outsource_spreadsheet_id).worksheet(outsource_sheet_name)
@@ -199,11 +311,4 @@ def update_notion_outsource_cost(notion_token=NOTION_API_KEY, project_db_id=PROJ
         print(f"❌ エラー: {e}")
 
 if __name__ == "__main__":
-    write_to_google_sheets(
-        notion_token=NOTION_API_KEY,
-        project_db_id=PROJECT_DB_ID,
-        outsource_db_id=OUTSOURCE_DB_ID,
-        credentials_file=GOOGLE_CREDENTIALS_FILE,
-        outsource_spreadsheet_id=SPREADSHEET_ID,
-        outsource_sheet_name=SHEET_NAME
-    )
+    write_to_google_sheets()
