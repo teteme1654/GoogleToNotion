@@ -38,12 +38,18 @@ README
 
 
 使用サービス
-	Render
-	https://dashboard.render.com/web/srv-cvcbg2rtq21c739t6a00/deploys/dep-cve34l56l47c73aahsp0?r=1h
+        Render
+        https://dashboard.render.com/web/srv-cvcbg2rtq21c739t6a00/deploys/dep-cve34l56l47c73aahsp0?r=1h
 
-	アカウント
-		ID kei.gtdr@gmail.com
-		PSW Kei4ke1991(かな？)
+Render でのデプロイ確認手順
+        1. Render ダッシュボードにログインし、対象サービス（google-to-notion）を開く。
+        2. 画面上部の Logs タブを選択し、Build ログと Runtime ログを切り替えて依存インストールや起動状況を確認する。
+        3. Runtime ログでは検索ボックスを使って `notion.databases.query` などのキーワードを絞り込める。
+        4. 不具合が疑われる場合は「Manual Deploy → Clear build cache & deploy」を実行し、依存パッケージを入れ直す。
+
+        アカウント
+                ID kei.gtdr@gmail.com
+                PSW Kei4ke1991(かな？)
 
 
 新規PCでの手順
