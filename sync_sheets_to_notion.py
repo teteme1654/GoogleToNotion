@@ -15,6 +15,21 @@ sync_log = []
 
 ##戻したい
 
+def _notion_database_query(notion, database_id, **params):
+    """Query a Notion database with backwards compatibility for SDK changes."""
+
+    databases = getattr(notion, "databases", None)
+    if databases and hasattr(databases, "query"):
+        return databases.query(database_id=database_id, **params)
+
+    body = {key: value for key, value in params.items() if value is not None}
+    return notion.request(
+        path=f"databases/{database_id}/query",
+        method="POST",
+        body=body,
+    )
+
+
 def query_all_notion_pages(notion, database_id, **query_kwargs):
     start_cursor = None
     while True:
@@ -22,7 +37,7 @@ def query_all_notion_pages(notion, database_id, **query_kwargs):
         if start_cursor:
             params["start_cursor"] = start_cursor
 
-        response = notion.databases.query(database_id=database_id, **params)
+        response = _notion_database_query(notion, database_id, **params)
         for page in response.get("results", []):
             yield page
 
