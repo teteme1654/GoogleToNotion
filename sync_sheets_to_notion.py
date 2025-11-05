@@ -18,16 +18,22 @@ sync_log = []
 def _notion_database_query(notion, database_id, **params):
     """Query a Notion database with backwards compatibility for SDK changes."""
 
+    cleaned_database_id = database_id.strip() if isinstance(database_id, str) else database_id
+    if not cleaned_database_id:
+        raise ValueError("database_id is required for Notion queries")
+
     databases = getattr(notion, "databases", None)
     if databases and hasattr(databases, "query"):
-        return databases.query(database_id=database_id, **params)
+        return databases.query(database_id=cleaned_database_id, **params)
 
     body = {key: value for key, value in params.items() if value is not None}
     return notion.request(
-        path=f"databases/{database_id}/query",
+        path=f"databases/{cleaned_database_id}/query",
         method="POST",
         body=body,
     )
+
+
 
 
 def query_all_notion_pages(notion, database_id, **query_kwargs):
@@ -298,10 +304,17 @@ def add_or_update_notion(
     except Exception as e:
         print(f"[エラー] Notion 登録失敗: {e}")
 
+def _clean_secret(value):
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+
 def sync_sheets_to_notion(sheet_name):
-    spreadsheet_id = st.secrets["syncsheet_spreadsheet_id"]
-    notion_token = st.secrets["notion_token"]
-    notion_db_id = st.secrets["project_db_id"]
+    spreadsheet_id = _clean_secret(st.secrets["syncsheet_spreadsheet_id"])
+    notion_token = _clean_secret(st.secrets["notion_token"])
+    notion_db_id = _clean_secret(st.secrets["project_db_id"])
     credentials_json = st.secrets["google_credentials_json"]
 
     notion = Client(auth=notion_token)
