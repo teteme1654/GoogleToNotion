@@ -105,6 +105,17 @@ def _ensure_google_credentials_file(credentials_json):
 
     return _GOOGLE_CREDENTIALS_FILE
 
+def _canonicalize_database_id(database_id):
+    if not database_id:
+        return ""
+
+    cleaned = database_id.strip() if isinstance(database_id, str) else str(database_id)
+    # Notion REST endpoints expect UUIDs without hyphens. The official SDK
+    # automatically normalises these, but environments falling back to the raw
+    # REST call need us to do the same.
+    return cleaned.replace("-", "")
+
+
 def _notion_database_query(notion, database_id, **params):
     """Query a Notion database, handling SDKs without `databases.query`."""
 

@@ -15,6 +15,13 @@ sync_log = []
 
 ##戻したい
 
+def _canonicalize_database_id(database_id):
+    if not database_id:
+        return ""
+
+    cleaned = database_id.strip() if isinstance(database_id, str) else str(database_id)
+    return cleaned.replace("-", "")
+
 def _notion_database_query(notion, database_id, **params):
     """Query a Notion database with backwards compatibility for SDK changes."""
 
