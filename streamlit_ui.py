@@ -1,6 +1,7 @@
 import streamlit as st
 from outsource_calculation import write_to_google_sheets, update_notion_outsource_cost
 from sync_sheets_to_notion import sync_sheets_to_notion
+from datetime import datetime
 import tempfile
 import json
 
@@ -29,10 +30,20 @@ st.markdown("""
 
 st.markdown("---")
 
+def get_fiscal_year_months():
+    today = datetime.now()
+    fy = today.year if today.month >= 4 else today.year - 1
+    months = [f"{m}月{fy}" for m in range(4, 13)]
+    months += [f"{m}月{fy + 1}" for m in range(1, 4)]
+    return months
+
 # ✅ 入力：スプレッドシート設定
 with st.expander("📁 スプレッドシート設定", expanded=True):
     syncsheet_spreadsheet_id = st.text_input("スプレッドシートID", value="1IQnzuM9coZDDTF-3f9_GnZ3o06yIFX2d-_PikbN3On4")
-    syncsheet_sheet_name = st.text_input("シート名", value="7月2025")
+    _months = get_fiscal_year_months()
+    _current = f"{datetime.now().month}月{datetime.now().year}"
+    _default_index = _months.index(_current) if _current in _months else 0
+    syncsheet_sheet_name = st.selectbox("シート名", _months, index=_default_index)
 
 st.markdown("---")
 
