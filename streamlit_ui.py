@@ -18,8 +18,8 @@ with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix=".json") as tem
     
 
 # ✅ UI タイトルと説明
-st.set_page_config(page_title="Notion × Sheets 同期ツール", page_icon="📊")
-st.title("📊 Notion × Google Sheets 同期ツール")
+st.set_page_config(page_title="C-cross", page_icon="📊")
+st.title("📊 C-cross")
 st.markdown("""
 このツールでは、以下の機能を操作できます：
 - Notion → Google Sheets への書き出し
@@ -31,7 +31,7 @@ st.markdown("---")
 
 # ✅ 入力：スプレッドシート設定
 with st.expander("📁 スプレッドシート設定", expanded=True):
-    syncsheet_spreadsheet_id = st.text_input("スプレッドシートID", value="1a6fFq4ZNUd5YYqdrNsHnhXaWxeiptbE3dLWdZK_NuTg")
+    syncsheet_spreadsheet_id = st.text_input("スプレッドシートID", value="1IQnzuM9coZDDTF-3f9_GnZ3o06yIFX2d-_PikbN3On4")
     syncsheet_sheet_name = st.text_input("シート名", value="7月2025")
 
 st.markdown("---")
