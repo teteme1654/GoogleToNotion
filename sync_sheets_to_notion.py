@@ -141,11 +141,16 @@ def get_existing_notion_entries(notion, NOTION_DATABASE_ID):
         if end_date:
             end_date = datetime.strptime(end_date[:10], "%Y-%m-%d")
 
+        status_raw = properties.get("進捗") or {}
+        status_select = status_raw.get("select") or {}
+        status_value = status_select.get("name", "")
+
         entry_key = (project_name, client_name)
         existing_entries[entry_key].append({
             "page_id": page_id,
             "start_date": start_date,
-            "end_date": end_date
+            "end_date": end_date,
+            "status": status_value
         })
     return existing_entries
 
@@ -243,6 +248,67 @@ def add_invoice_blocks(notion, parent_page_id):
 # unchanged 以降は省略なしで編集されているので維持
 
 
+def _get_anthropic_client():
+    import anthropic
+    import os
+    api_key = None
+    try:
+        api_key = st.secrets.get("anthropic_api_key")
+    except Exception:
+        pass
+    if not api_key:
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    return anthropic.Anthropic(api_key=api_key)
+
+
+def _judge_ambiguous_case_with_claude(project_name, client_name, new_start, new_end, existing_entries_for_key):
+    client = _get_anthropic_client()
+    if client is None:
+        return None
+
+    existing_lines = []
+    for i, e in enumerate(existing_entries_for_key):
+        sd = e["start_date"].strftime("%Y-%m-%d") if e["start_date"] else "不明"
+        ed = e["end_date"].strftime("%Y-%m-%d") if e["end_date"] else "不明"
+        status = e.get("status") or "未設定"
+        existing_lines.append(f"  既存エントリ{i+1}: 開始={sd}, 終了={ed}, 進捗={status}")
+
+    prompt = f"""以下の案件管理データについて判断してください。
+
+プロジェクト名: {project_name}
+クライアント名: {client_name}
+
+【Notionに既に存在するエントリ】
+{chr(10).join(existing_lines)}
+
+【新しくシートから読み込んだデータ】
+  開始日: {new_start.strftime("%Y-%m-%d")}
+  終了日: {new_end.strftime("%Y-%m-%d")}
+
+このケースは以下のどれに該当しますか？
+1. update: 同じ案件の継続・日程変更のため既存エントリを更新すべき
+2. new: 別月の定期案件または別案件のため新規エントリを追加すべき
+3. skip: 実質的に同じデータのためスキップすべき
+
+"update", "new", "skip" のいずれか1単語のみで答えてください。"""
+
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=10,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        result = message.content[0].text.strip().lower()
+        if result in ("update", "new", "skip"):
+            return result
+        return None
+    except Exception as e:
+        print(f"[警告] Claude API呼び出し失敗: {e}")
+        return None
+
+
 def add_or_update_notion(
     notion,
     NOTION_DATABASE_ID,
@@ -288,17 +354,47 @@ def add_or_update_notion(
         "年度": {"select": {"name": fiscal_year_label}}
     }
     if entry_key in existing_entries:
+        # 日付が完全一致するエントリがあればスキップ
         for entry in existing_entries[entry_key]:
             if entry["start_date"] == formatted_start_date and entry["end_date"] == formatted_end_date:
                 print(f"[スキップ] 既存データ {entry_key}")
                 return
+
+        # 日付が異なる場合はClaudeに判断させる
+        judgment = _judge_ambiguous_case_with_claude(
+            project_name, client_name,
+            formatted_start_date, formatted_end_date,
+            existing_entries[entry_key],
+        )
+
+        if judgment is None:
+            # Claude失敗時は従来の上書き動作にフォールバック
+            print(f"[フォールバック] Claude判断不可のため上書き: {entry_key}")
+            for entry in existing_entries[entry_key]:
+                try:
+                    notion.pages.update(page_id=entry["page_id"], properties=props)
+                    update_log.append(entry_key)
+                    print(f"[更新成功（フォールバック）] {entry_key}")
+                except Exception as e:
+                    print(f"[エラー] Notion 更新失敗: {e}")
+            return
+
+        if judgment == "skip":
+            print(f"[スキップ（Claude判断）] {entry_key}")
+            return
+
+        if judgment == "update":
+            entry = existing_entries[entry_key][0]
             try:
                 notion.pages.update(page_id=entry["page_id"], properties=props)
                 update_log.append(entry_key)
-                print(f"[更新成功] {entry_key}")
+                print(f"[更新成功（Claude判断）] {entry_key}")
             except Exception as e:
                 print(f"[エラー] Notion 更新失敗: {e}")
-        return
+            return
+
+        # judgment == "new" の場合は fall-through して下の新規作成へ
+        print(f"[新規作成（Claude判断）] {entry_key}")
     try:
         new_page = notion.pages.create(
             parent={"database_id": NOTION_DATABASE_ID},
