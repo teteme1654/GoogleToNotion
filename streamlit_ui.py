@@ -1,6 +1,6 @@
 import streamlit as st
 from outsource_calculation import write_to_google_sheets, update_notion_outsource_cost
-from sync_sheets_to_notion import sync_sheets_to_notion
+from sync_sheets_to_notion import sync_sheets_to_notion, sync_log, update_log
 import tempfile
 import json
 
@@ -41,8 +41,14 @@ st.markdown("---")
 with st.expander("👢 Google Sheets → Notion へ反映", expanded=False):
     if st.button("案件データ → Notionに反映"):
         try:
+            sync_log.clear()
+            update_log.clear()
             sync_sheets_to_notion(syncsheet_sheet_name)
             st.success("✅ Notion DBに反映完了")
+            if sync_log:
+                st.write("🆕 新規追加:", sync_log)
+            if update_log:
+                st.write("🔄 更新:", update_log)
         except Exception as e:
             st.error(f"❌ エラー発生: {e}")
 
