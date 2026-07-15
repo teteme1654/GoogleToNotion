@@ -414,14 +414,16 @@ def _clean_secret(value):
 
 
 
-def sync_sheets_to_notion(sheet_name):
-    spreadsheet_id = _clean_secret(st.secrets["syncsheet_spreadsheet_id"])
-    notion_token = _clean_secret(st.secrets["notion_token"])
-    notion_db_id = _clean_secret(st.secrets["project_db_id"])
-    credentials_json = st.secrets["google_credentials_json"]
+def read_sheet_data(sheet_name):
+    """シートからプロジェクトエントリを読み込む.
 
-    notion = Client(auth=notion_token)
-    existing_entries = get_existing_notion_entries(notion, notion_db_id)
+    Returns:
+        tuple: (project_entries, fiscal_year_start)
+            project_entries: dict of {(project_name, client_name): {dates, location, vehicle}}
+            fiscal_year_start: int
+    """
+    spreadsheet_id = _clean_secret(st.secrets["syncsheet_spreadsheet_id"])
+    credentials_json = st.secrets["google_credentials_json"]
 
     creds_dict = json.loads(credentials_json)
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -437,7 +439,6 @@ def sync_sheets_to_notion(sheet_name):
         formatted_date = format_date(date_raw, fiscal_year_start)
         if not formatted_date:
             continue
-
 
         for col in range(4, len(data[row_base]), 2):
             if col + 1 >= len(data[row_base]):
@@ -460,6 +461,23 @@ def sync_sheets_to_notion(sheet_name):
     print("==== 読み取ったエントリ ====")
     for key, val in project_entries.items():
         print(key, val)
+
+    return dict(project_entries), fiscal_year_start
+
+
+def sync_sheets_to_notion(sheet_name, name_mapping=None):
+    notion_token = _clean_secret(st.secrets["notion_token"])
+    notion_db_id = _clean_secret(st.secrets["project_db_id"])
+
+    notion = Client(auth=notion_token)
+    existing_entries = get_existing_notion_entries(notion, notion_db_id)
+
+    project_entries, fiscal_year_start = read_sheet_data(sheet_name)
+
+    # 名寄せマッピングを適用
+    if name_mapping:
+        from name_matching import apply_name_mapping
+        project_entries = apply_name_mapping(project_entries, name_mapping)
 
     for (project_name, client_name), val in project_entries.items():
         if not val["dates"]:
